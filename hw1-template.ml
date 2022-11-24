@@ -137,7 +137,22 @@ end;;  *)
                     0
                     digits) in
     nt1 str
-  and nt_optional_sign str = raise X_not_yet_implemented
+  (* and nt_optional_sign str = raise X_not_yet_implemented *)
+  (* fun vs. function: function only allows for one argument but allows for pattern matching,
+   while fun is the more general and flexible way to define a function. *)
+   (* TODO: maybe problem with minus! *)
+  and nt_optional_sign str =
+    let nt1 = char '+' in
+    let nt1 = pack nt1 (fun _ -> true) in
+    let nt2 = char '-' in
+    let nt2 = pack nt2 (fun _ -> false) in
+    let nt1 = disj nt1 nt2 in 
+    let nt1 = maybe nt1 in
+    let nt1 = pack nt1 (function
+      | None -> true
+      | Some sign -> sign) in 
+    nt1 str
+
   and nt_int str =
     let nt1 = caten nt_optional_sign nt_nat in
     let nt1 = pack nt1
@@ -191,6 +206,8 @@ end;;  *)
        | None -> none_value
        | Some(x) -> x)
   and nt_float str = raise X_not_yet_implemented
+
+
   and nt_number str =
     let nt1 = nt_float in
     let nt2 = nt_frac in
