@@ -55,29 +55,39 @@ end;;  *)
     let nt2 = unitify nt_end_of_input in
     let nt1 = disj nt1 nt2 in
     nt1 str
-  and nt_line_comment str = raise X_not_yet_implemented
-    (* let nt1 = char ';' in
+  and nt_line_comment str =
+    let nt1 = char ';' in
     let nt2 = diff nt_any nt_end_of_line_or_file in
     let nt2 = star nt2 in
     let nt1 = caten nt1 nt2 in
     let nt1 = caten nt1 nt_end_of_line_or_file in
     let nt1 = unitify nt1 in
-    nt1 str *)
-  and nt_paired_comment str = raise X_not_yet_implemented
-  (* and nt_sexpr_comment str = raise X_not_yet_implemented  *)
-  and nt_sexpr_comment str = raise X_not_yet_implemented
-    (* let nt1 = char '(' in
-    let nt2 = char ')' in
-    let nt3 = nt_any in 
-    let nt3 = diff nt3 nt2 in
-    let nt3 = star nt3 in
-    let nt4 = char ')' in
-    let nt1 = caten nt1 nt3 in
-    let nt2 = caten nt1 nt2 in
-    let nt3 = word "#;" in
-    let nt3 = caten nt3 nt2 in
-    nt3 str *)
+    nt1 str
+  and nt_paired_comment str =
+    let nt1 = char '{' in
+    let nt2 = char '}' in
+    let nt3 = unitify nt_char in
+    let nt4 = unitify nt_string in
+    let nt5 = nt_comment in
+    let nt5 = disj_list[nt5;nt4;nt3] in
+    let nt4 = unitify (one_of "{}") in
+    let nt4 = disj nt5 nt4 in
+    let nt4 = diff nt_any nt4 in
+    let nt4 = disj (unitify nt4) nt5 in
+    let nt5 = star nt4 in
+    let nt5 = caten nt1 (caten nt5 nt2) in
+    let nt5 = unitify nt5 in
+    nt5 str
 
+
+      (* and nt_sexpr_comment str = raise X_not_yet_implemented *)
+    and nt_sexpr_comment str = 
+      let nt1 = word "#;" in
+      let nt2 = nt_sexpr in
+      let nt2 = caten nt1 nt2 in
+      let nt2 = unitify nt2 in
+      nt2 str
+    
 
   and nt_comment str =
     disj_list
@@ -205,7 +215,29 @@ end;;  *)
       (function
        | None -> none_value
        | Some(x) -> x)
-  and nt_float str = raise X_not_yet_implemented
+
+  and nt_float str = 
+    let ntp = nt_optional_sign in
+    let nt1 = make_maybe nt_integer_part 0. in
+    let nt2 = unitify (char '.') in
+    let nt_after_first_dot = caten nt1 nt2 in
+    let nt_after_first_dot = pack nt_after_first_dot (fun (nums, _) -> nums) in
+    let nt3 = nt_mantissa in
+    let nt3 = make_maybe nt3 0. in
+    let nt_first_part = caten nt_after_first_dot nt3 in
+    let nt_first_part = pack nt_first_part (fun (inte1, inte2) -> inte1 +. inte2) in
+    let nt_signed_first_part = caten ntp nt_first_part in
+    let nt_signed_first_part = pack nt_signed_first_part (fun(bo, fl) -> 
+      if bo
+        then fl
+        else -1. *. fl) in
+
+    let nt4 = nt_exponent in
+    let nt4 = make_maybe nt4 1. in
+    let nt_combined = caten nt_signed_first_part nt4 in
+    let nt_combined = pack nt_combined (fun (num1, num2) -> num1 *. num2) in
+    let nt_finished = pack nt_combined (fun (num) -> ScmReal(num)) in
+    nt_finished str
 
 
   and nt_number str =
@@ -293,7 +325,19 @@ end;;  *)
     let nt1 = pack nt1 (fun (_, (n, _)) -> n) in
     let nt1 = pack nt1 char_of_int in
     nt1 str
-  and nt_string_part_dynamic str = raise X_not_yet_implemented
+  (* and nt_string_part_dynamic str = raise X_not_yet_implemented *)
+  and nt_string_part_dynamic str =
+      let nt_tilde_lparen = unitify (word "~{") in 
+      let nt_rparen = char '}' in 
+      let nt1 = caten nt_tilde_lparen (caten nt_sexpr nt_rparen) in 
+      let nt1 = pack nt1 (fun ((_ ,(sexp, _))) -> sexp ) in
+      let nt1 = pack nt1 (fun sexp ->
+        ScmPair(ScmSymbol "format", ScmPair(ScmString "~a", ScmPair(sexp, ScmNil)))) in
+      let nt1 = pack nt1 (fun (sexp) -> Dynamic(sexp)) in
+      nt1 str
+
+
+
   and nt_string_part_static str =
     let nt1 = disj_list [nt_string_part_simple;
                          nt_string_part_meta;
@@ -328,7 +372,21 @@ end;;  *)
                          ScmNil in
                      ScmPair(ScmSymbol "string-append", argl)) in
     nt1 str
-  and nt_vector str = raise X_not_yet_implemented
+  (* and nt_vector str = raise X_not_yet_implemented *)
+  and nt_vector str =
+    let nt_shtrud_lparen = word "#(" in 
+    let nt_shtrud_lparen = caten nt_skip_star nt_shtrud_lparen in 
+    let nt_shtrud_lparen = unitify nt_shtrud_lparen in
+    let nt_sexprs = star nt_sexpr in 
+    let nt_sexprs = caten nt_shtrud_lparen nt_sexprs in 
+    let nt_sexprs = pack nt_sexprs (fun (_,sexprs) -> sexprs) in
+    let nt_rparen = char ')' in 
+    let nt_sexprs = caten nt_sexprs nt_rparen in 
+    let nt_sexprs = pack nt_sexprs (fun (sexprs, _) -> sexprs) in
+    let nt_sexprs = pack nt_sexprs (fun (sexprs) -> ScmVector sexprs) in 
+    nt_sexprs str
+
+
   and nt_list str = raise X_not_yet_implemented
   and make_quoted_form nt_qf qf_name =
     let nt1 = caten nt_qf nt_sexpr in
@@ -348,8 +406,10 @@ end;;  *)
     nt1 str
   and nt_sexpr str = 
     let nt1 =
+      (* disj_list [nt_void; nt_number; nt_boolean; nt_char; nt_symbol;
+                 nt_string; nt_vector; nt_list; nt_quoted_forms] in *)
       disj_list [nt_void; nt_number; nt_boolean; nt_char; nt_symbol;
-                 nt_string; nt_vector; nt_list; nt_quoted_forms] in
+                 nt_string; nt_quoted_forms] in
     let nt1 = make_skipped_star nt1 in
     nt1 str;;
 
