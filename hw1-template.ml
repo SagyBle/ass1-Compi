@@ -386,33 +386,28 @@ end;;  *)
     let nt_sexprs = pack nt_sexprs (fun (sexprs) -> ScmVector sexprs) in 
     nt_sexprs str
 
-
-  and nt_list str = raise X_not_yet_implemented
-  (* (* added str in the line below (fixed) *)
-  and nt_list str = 
-    let nt_left_pn = char '(' in 
-    let nt_spaces = star nt_whitespace in
+  and nt_list str =
     let nt_right_pn = char ')' in
-    let nt_empty_end = pack (caten nt_spaces nt_right_pn) 
-      (fun _ -> ScmNil) in
+    let nt_to_clear = nt_skip_star in
+    let nt_end = caten nt_to_clear nt_right_pn in
+    let nt_end = pack nt_end (fun _ -> ScmNil) in
+    let nt_exprs = plus nt_sexpr in
+    let nt_last_pn = pack nt_right_pn (fun _ -> ScmNil) in
     let nt_dot = char '.' in
-    (* may be an issue in the line bellow  *)
-    let nt_last_exp = caten nt_dot (caten nt_sexpr nt_right_pn) in 
-
-    (* there was a parenthesis and '_' issue in the line below (fixed) *)
-    let nt_last_exp = pack nt_last_exp (fun (_, (exp, _)) -> exp) in 
-    let nt_last_paren = pack nt_right_pn (fun _ -> ScmNil) in
-    let nt_last_exp = disj nt_last_exp nt_last_paren in
-    let nt_rec_combined = caten (plus nt_sexpr) nt_last_exp in
-    let nt_packed_combined = pack nt_rec_combined
-        (fun (sexprs, sexp) -> List.fold_right
-          (fun exp1 exp2 -> ScmPair(exp1, exp2)) sexprs, sexp) in
-
-    (* may be an issue in the line bellow  *)
-    let nt_with_empty = disj nt_packed_combined nt_empty_end in
-    let nt_total = pack (caten nt_left_pn nt_with_empty)
-                        (fun (_, exp) -> exp) in
-    nt_total str *)
+    let nt_end_exp = caten nt_dot (caten nt_sexpr nt_right_pn) in
+    let nt_end_exp =  pack nt_end_exp
+                          (fun (_, (sexpr, _)) -> sexpr) in
+    let nt_end_total = disj nt_end nt_end_exp in
+    let nt_combined = caten nt_exprs nt_end_total in
+    let nt_combined = pack nt_combined 
+                    (fun (exprs, expr) -> List.fold_right 
+                                              (fun exp1 exp2 -> ScmPair (exp1, exp2))
+                                              exprs
+                                              expr) in
+    let nt_all = disj nt_end nt_combined in
+    let nt_left_pn = char '(' in
+    let nt_all_packed = pack (caten nt_left_pn nt_all) (fun (_, sexpr) -> sexpr) in
+    nt_all_packed str
 
 
 
@@ -434,10 +429,10 @@ end;;  *)
     nt1 str
   and nt_sexpr str = 
     let nt1 =
-      (* disj_list [nt_void; nt_number; nt_boolean; nt_char; nt_symbol;
-                 nt_string; nt_vector; nt_list; nt_quoted_forms] in *)
       disj_list [nt_void; nt_number; nt_boolean; nt_char; nt_symbol;
-                 nt_string; nt_quoted_forms] in
+                 nt_string; nt_vector; nt_list; nt_quoted_forms] in
+      (* disj_list [nt_void; nt_number; nt_boolean; nt_char; nt_symbol;
+                 nt_string; nt_quoted_forms] in *)
     let nt1 = make_skipped_star nt1 in
     nt1 str;;
 
