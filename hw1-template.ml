@@ -388,6 +388,34 @@ end;;  *)
 
 
   and nt_list str = raise X_not_yet_implemented
+  (* (* added str in the line below (fixed) *)
+  and nt_list str = 
+    let nt_left_pn = char '(' in 
+    let nt_spaces = star nt_whitespace in
+    let nt_right_pn = char ')' in
+    let nt_empty_end = pack (caten nt_spaces nt_right_pn) 
+      (fun _ -> ScmNil) in
+    let nt_dot = char '.' in
+    (* may be an issue in the line bellow  *)
+    let nt_last_exp = caten nt_dot (caten nt_sexpr nt_right_pn) in 
+
+    (* there was a parenthesis and '_' issue in the line below (fixed) *)
+    let nt_last_exp = pack nt_last_exp (fun (_, (exp, _)) -> exp) in 
+    let nt_last_paren = pack nt_right_pn (fun _ -> ScmNil) in
+    let nt_last_exp = disj nt_last_exp nt_last_paren in
+    let nt_rec_combined = caten (plus nt_sexpr) nt_last_exp in
+    let nt_packed_combined = pack nt_rec_combined
+        (fun (sexprs, sexp) -> List.fold_right
+          (fun exp1 exp2 -> ScmPair(exp1, exp2)) sexprs, sexp) in
+
+    (* may be an issue in the line bellow  *)
+    let nt_with_empty = disj nt_packed_combined nt_empty_end in
+    let nt_total = pack (caten nt_left_pn nt_with_empty)
+                        (fun (_, exp) -> exp) in
+    nt_total str *)
+
+
+
   and make_quoted_form nt_qf qf_name =
     let nt1 = caten nt_qf nt_sexpr in
     let nt1 = pack nt1
