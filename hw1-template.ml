@@ -272,7 +272,16 @@ end;;  *)
     let nt4 = char '\t' in
     let nt5 = char '\012' in 
     let nt6 = char '\r' in 
-    let nt1 = disj_list [nt1; nt2; nt3 ;nt4; nt5; nt6] in
+    (* try starts *)
+    let nt7 = pack (word_ci "space") (fun _ -> ' ') in 
+    let nt8 = pack (word_ci "return") (fun _ -> '\r') in 
+    let nt9 = pack (word_ci "newline") (fun _ -> '\n') in 
+    let nt10 = pack (word_ci "tab") (fun _ -> '\t') in 
+    let nt11 = pack (word_ci "page") (fun _ -> '\012') in 
+    let nt12 = pack (word_ci "nul") (fun _ -> '\000') in 
+    let nt13 = pack (word_ci "null") (fun _ -> '\000') in 
+    (* try ends *)
+    let nt1 = disj_list [nt1; nt2; nt3 ;nt4; nt5; nt6; nt7; nt8; nt9; nt10; nt11; nt12; nt13] in
     nt1 str
 
   and nt_char_hex str =
@@ -374,8 +383,9 @@ end;;  *)
     nt1 str
   (* and nt_vector str = raise X_not_yet_implemented *)
   and nt_vector str =
+    
     let nt_shtrud_lparen = word "#(" in 
-    let nt_shtrud_lparen = caten nt_skip_star nt_shtrud_lparen in 
+    let nt_shtrud_lparen = caten nt_skip_star (caten nt_shtrud_lparen nt_skip_star) in 
     let nt_shtrud_lparen = unitify nt_shtrud_lparen in
     let nt_sexprs = star nt_sexpr in 
     let nt_sexprs = caten nt_shtrud_lparen nt_sexprs in 
@@ -386,7 +396,7 @@ end;;  *)
     let nt_sexprs = pack nt_sexprs (fun (sexprs) -> ScmVector sexprs) in 
     nt_sexprs str
 
-  and nt_list str =
+  (* and nt_list str =
     let nt_right_pn = char ')' in
     let nt_to_clear = nt_skip_star in
     let nt_end = caten nt_to_clear nt_right_pn in
@@ -395,6 +405,29 @@ end;;  *)
     let nt_last_pn = pack nt_right_pn (fun _ -> ScmNil) in
     let nt_dot = char '.' in
     let nt_end_exp = caten nt_dot (caten nt_sexpr nt_right_pn) in
+    let nt_end_exp =  pack nt_end_exp *)
+                          (* (fun (_, (sexpr, _)) -> sexpr) in
+    let nt_end_total = disj nt_end nt_end_exp in
+    let nt_combined = caten nt_exprs nt_end_total in
+    let nt_combined = pack nt_combined 
+                    (fun (exprs, expr) -> List.fold_right 
+                                              (fun exp1 exp2 -> ScmPair (exp1, exp2))
+                                              exprs
+                                              expr) in
+    let nt_all = disj nt_end nt_combined in
+    let nt_left_pn = char '(' in *)
+    (* let nt_all_packed = pack (caten nt_left_pn nt_all) (fun (_, sexpr) -> sexpr) in
+    nt_all_packed str *)
+
+  and nt_list str =
+    let nt_right_pn = char ')' in
+    let nt_to_clear = nt_skip_star in
+    let nt_end = caten nt_to_clear nt_right_pn in
+    let nt_end = pack nt_end (fun _ -> ScmNil) in
+    let nt_exprs = plus nt_sexpr in
+    let nt_last_pn = pack nt_right_pn (fun _ -> ScmNil) in
+    let nt_dot = char '.' in
+    let nt_end_exp = caten nt_dot (caten nt_sexpr nt_last_pn) in
     let nt_end_exp =  pack nt_end_exp
                           (fun (_, (sexpr, _)) -> sexpr) in
     let nt_end_total = disj nt_end nt_end_exp in
@@ -409,8 +442,7 @@ end;;  *)
     let nt_all_packed = pack (caten nt_left_pn nt_all) (fun (_, sexpr) -> sexpr) in
     nt_all_packed str
 
-
-
+    
   and make_quoted_form nt_qf qf_name =
     let nt1 = caten nt_qf nt_sexpr in
     let nt1 = pack nt1
