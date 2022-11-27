@@ -35,11 +35,9 @@ module type READER = sig
   val sprint_sexpr : 'a -> sexpr -> string
   val sprint_sexprs : 'a -> sexpr list -> string
   val scheme_sexpr_list_of_sexpr_list : sexpr list -> sexpr
-end;; 
+end;; (* end of READER signature *)
 
-(* end of READER signature *)
-
-(* module Reader : READER = struct *)
+module Reader : READER = struct
   open PC;;
 
   type string_part =
