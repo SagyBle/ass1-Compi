@@ -28,14 +28,14 @@ type sexpr =
   | ScmVector of (sexpr list)
   | ScmPair of (sexpr * sexpr);;
 
-(* module type READER = sig
+module type READER = sig
   val nt_sexpr : sexpr PC.parser
   val print_sexpr : out_channel -> sexpr -> unit
   val print_sexprs : out_channel -> sexpr list -> unit
   val sprint_sexpr : 'a -> sexpr -> string
   val sprint_sexprs : 'a -> sexpr list -> string
   val scheme_sexpr_list_of_sexpr_list : sexpr list -> sexpr
-end;;  *)
+end;; 
 
 (* end of READER signature *)
 
@@ -107,7 +107,7 @@ end;;  *)
     let nt1 = caten nt_skip_star (caten nt nt_skip_star) in
     let nt1 = pack nt1 (fun (_, (e, _)) -> e) in
     nt1
-  (* and nt_digit str = raise X_not_yet_implemented *)
+
   and nt_digit str =
     let nt1 = range '0' '9' in
     let nt1 = pack nt1 (
@@ -115,7 +115,7 @@ end;;  *)
       fun (ch) -> ((int_of_char ch) - delta) 
     ) in
     nt1 str
-  (* and nt_hex_digit str = raise X_not_yet_implemented *)
+
   and nt_hex_digit str = 
     let nt1 = nt_digit in
     let nt2 = range 'a' 'f' in
@@ -125,7 +125,7 @@ end;;  *)
     nt1 str
     
 
-  (* and nt_nat str = raise X_not_yet_implemented *)
+
   and nt_nat str = 
     let nt1 = plus nt_digit in
     let nt1 = pack nt1
@@ -147,10 +147,7 @@ end;;  *)
                     0
                     digits) in
     nt1 str
-  (* and nt_optional_sign str = raise X_not_yet_implemented *)
-  (* fun vs. function: function only allows for one argument but allows for pattern matching,
-   while fun is the more general and flexible way to define a function. *)
-   (* TODO: maybe problem with minus! *)
+  
   and nt_optional_sign str =
     let nt1 = char '+' in
     let nt1 = pack nt1 (fun _ -> true) in
@@ -216,29 +213,62 @@ end;;  *)
        | None -> none_value
        | Some(x) -> x)
 
-  and nt_float str = 
-    let ntp = nt_optional_sign in
-    let nt1 = make_maybe nt_integer_part 0. in
-    let nt2 = unitify (char '.') in
-    let nt_after_first_dot = caten nt1 nt2 in
-    let nt_after_first_dot = pack nt_after_first_dot (fun (nums, _) -> nums) in
-    let nt3 = nt_mantissa in
-    let nt3 = make_maybe nt3 0. in
-    let nt_first_part = caten nt_after_first_dot nt3 in
-    let nt_first_part = pack nt_first_part (fun (inte1, inte2) -> inte1 +. inte2) in
-    let nt_signed_first_part = caten ntp nt_first_part in
-    let nt_signed_first_part = pack nt_signed_first_part (fun(bo, fl) -> 
+
+  (* FloatA ::= (+-)? <IntegerPart>.<Mantissa>?<Exponent>? *)
+  and nt_floatA str =
+    let nt_sign = nt_optional_sign in
+    let nt_point = unitify (char '.') in
+    let nt_integer_point = caten nt_integer_part nt_point in
+    let nt_integer_point = pack nt_integer_point (fun (nums, _) -> nums) in
+    let nt_mantissaa = make_maybe nt_mantissa 0. in
+    let nt_int_mantissa = caten nt_integer_point nt_mantissaa in
+    let nt_int_mantissa = pack nt_int_mantissa (fun (inte1, inte2) -> inte1 +. inte2) in
+    let nt_signed_int_mantissa = caten nt_sign nt_int_mantissa in
+    let nt_signed_int_mantissa = pack nt_signed_int_mantissa (fun(bo, fl) -> 
       if bo
         then fl
         else -1. *. fl) in
-
-    let nt4 = nt_exponent in
-    let nt4 = make_maybe nt4 1. in
-    let nt_combined = caten nt_signed_first_part nt4 in
-    let nt_combined = pack nt_combined (fun (num1, num2) -> num1 *. num2) in
-    let nt_finished = pack nt_combined (fun (num) -> ScmReal(num)) in
+    let nt_exponentt = make_maybe nt_exponent 1. in
+    let nt_multiplied = caten nt_signed_int_mantissa nt_exponentt in
+    let nt_multiplied = pack nt_multiplied (fun (num1, num2) -> num1 *. num2) in
+    let nt_finished = pack nt_multiplied (fun (num) -> ScmReal(num)) in
     nt_finished str
 
+  (* FloatB ::= (+-)? .<Mantissa><Exponent>? *)
+  and nt_floatB str =
+    let nt_sign = nt_optional_sign in
+    let nt_point = unitify (char '.') in
+    let nt_point = pack nt_point (fun (_) -> 0.) in
+    let nt_mantissaa = nt_mantissa in
+    let nt_zero_mantissa = caten nt_point nt_mantissaa in
+    let nt_zero_mantissa = pack nt_zero_mantissa (fun (zero, inte2) -> zero +. inte2) in
+    let nt_signed_int_mantissa = caten nt_sign nt_zero_mantissa in
+    let nt_signed_int_mantissa = pack nt_signed_int_mantissa (fun(bo, fl) -> 
+      if bo
+        then fl
+        else -1. *. fl) in
+    let nt_exponentt = make_maybe nt_exponent 1. in
+    let nt_multiplied = caten nt_signed_int_mantissa nt_exponentt in
+    let nt_multiplied = pack nt_multiplied (fun (num1, num2) -> num1 *. num2) in
+    let nt_finished = pack nt_multiplied (fun (num) -> ScmReal(num)) in
+    nt_finished str
+
+  (* FloatC ::= (+-)? <IntegerPart><Exponent>? *)
+  and nt_floatC str =
+    let nt_sign = nt_optional_sign in
+    let nt_signed_integer_part = caten nt_sign nt_integer_part in 
+    let nt_signed_integer_part = pack nt_signed_integer_part (fun(bo, fl) -> 
+      if bo
+        then fl
+        else -1. *. fl) in
+    let nt_multiplied = caten nt_signed_integer_part nt_exponent in
+    let nt_multiplied = pack nt_multiplied (fun (num1, num2) -> num1 *. num2) in
+    let nt_finished = pack nt_multiplied (fun (num) -> ScmReal(num)) in
+    nt_finished str
+
+  and nt_float str = 
+    let nt_float = disj_list [nt_floatA; nt_floatB; nt_floatC] in 
+    nt_float str
 
   and nt_number str =
     let nt1 = nt_float in
@@ -264,7 +294,7 @@ end;;  *)
     let nt1 = const(fun ch -> ' ' < ch) in
     let nt1 = not_followed_by nt1 nt_symbol_char in
     nt1 str
-  (* and nt_char_named str = raise X_not_yet_implemented *)
+
   and nt_char_named str = 
     let nt1 = char ' ' in
     let nt2 = char '\n' in
@@ -272,7 +302,6 @@ end;;  *)
     let nt4 = char '\t' in
     let nt5 = char '\012' in 
     let nt6 = char '\r' in 
-    (* try starts *)
     let nt7 = pack (word_ci "space") (fun _ -> ' ') in 
     let nt8 = pack (word_ci "return") (fun _ -> '\r') in 
     let nt9 = pack (word_ci "newline") (fun _ -> '\n') in 
@@ -280,7 +309,6 @@ end;;  *)
     let nt11 = pack (word_ci "page") (fun _ -> '\012') in 
     let nt12 = pack (word_ci "nul") (fun _ -> '\000') in 
     let nt13 = pack (word_ci "null") (fun _ -> '\000') in 
-    (* try ends *)
     let nt1 = disj_list [nt1; nt2; nt3 ;nt4; nt5; nt6; nt7; nt8; nt9; nt10; nt11; nt12; nt13] in
     nt1 str
 
@@ -303,7 +331,7 @@ end;;  *)
     let nt3 = one_of "!$^*_-+=<>?/" in
     let nt1 = disj nt1 (disj nt2 nt3) in
     nt1 str
-  (* and nt_symbol str = raise X_not_yet_implemented; *)
+
   and nt_symbol str = 
     let nt1 = plus nt_symbol_char in
     let nt1 = pack nt1 (fun list -> ScmSymbol(string_of_list(list))) in
@@ -334,8 +362,8 @@ end;;  *)
     let nt1 = pack nt1 (fun (_, (n, _)) -> n) in
     let nt1 = pack nt1 char_of_int in
     nt1 str
-  (* and nt_string_part_dynamic str = raise X_not_yet_implemented *)
-  and nt_string_part_dynamic str =
+
+    and nt_string_part_dynamic str =
       let nt_tilde_lparen = unitify (word "~{") in 
       let nt_rparen = char '}' in 
       let nt1 = caten nt_tilde_lparen (caten nt_sexpr nt_rparen) in 
@@ -381,9 +409,8 @@ end;;  *)
                          ScmNil in
                      ScmPair(ScmSymbol "string-append", argl)) in
     nt1 str
-  (* and nt_vector str = raise X_not_yet_implemented *)
+
   and nt_vector str =
-    
     let nt_shtrud_lparen = word "#(" in 
     let nt_shtrud_lparen = caten nt_skip_star (caten nt_shtrud_lparen nt_skip_star) in 
     let nt_shtrud_lparen = unitify nt_shtrud_lparen in
@@ -395,29 +422,6 @@ end;;  *)
     let nt_sexprs = pack nt_sexprs (fun (sexprs, _) -> sexprs) in
     let nt_sexprs = pack nt_sexprs (fun (sexprs) -> ScmVector sexprs) in 
     nt_sexprs str
-
-  (* and nt_list str =
-    let nt_right_pn = char ')' in
-    let nt_to_clear = nt_skip_star in
-    let nt_end = caten nt_to_clear nt_right_pn in
-    let nt_end = pack nt_end (fun _ -> ScmNil) in
-    let nt_exprs = plus nt_sexpr in
-    let nt_last_pn = pack nt_right_pn (fun _ -> ScmNil) in
-    let nt_dot = char '.' in
-    let nt_end_exp = caten nt_dot (caten nt_sexpr nt_right_pn) in
-    let nt_end_exp =  pack nt_end_exp *)
-                          (* (fun (_, (sexpr, _)) -> sexpr) in
-    let nt_end_total = disj nt_end nt_end_exp in
-    let nt_combined = caten nt_exprs nt_end_total in
-    let nt_combined = pack nt_combined 
-                    (fun (exprs, expr) -> List.fold_right 
-                                              (fun exp1 exp2 -> ScmPair (exp1, exp2))
-                                              exprs
-                                              expr) in
-    let nt_all = disj nt_end nt_combined in
-    let nt_left_pn = char '(' in *)
-    (* let nt_all_packed = pack (caten nt_left_pn nt_all) (fun (_, sexpr) -> sexpr) in
-    nt_all_packed str *)
 
   and nt_list str =
     let nt_right_pn = char ')' in
@@ -463,8 +467,6 @@ end;;  *)
     let nt1 =
       disj_list [nt_void; nt_number; nt_boolean; nt_char; nt_symbol;
                  nt_string; nt_vector; nt_list; nt_quoted_forms] in
-      (* disj_list [nt_void; nt_number; nt_boolean; nt_char; nt_symbol;
-                 nt_string; nt_quoted_forms] in *)
     let nt1 = make_skipped_star nt1 in
     nt1 str;;
 
@@ -550,5 +552,5 @@ end;;  *)
   let scheme_sexpr_list_of_sexpr_list sexprs =
     List.fold_right (fun car cdr -> ScmPair (car, cdr)) sexprs ScmNil;;
 
-(* end;;  *)
+end;; 
 (* end of struct Reader *)
