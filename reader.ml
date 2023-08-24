@@ -28,16 +28,17 @@ type sexpr =
   | ScmVector of (sexpr list)
   | ScmPair of (sexpr * sexpr);;
 
-module type READER = sig
+(* module type READER = sig
   val nt_sexpr : sexpr PC.parser
+  val nt_list : sexpr PC.parser
   val print_sexpr : out_channel -> sexpr -> unit
   val print_sexprs : out_channel -> sexpr list -> unit
   val sprint_sexpr : 'a -> sexpr -> string
   val sprint_sexprs : 'a -> sexpr list -> string
   val scheme_sexpr_list_of_sexpr_list : sexpr list -> sexpr
-end;; (* end of READER signature *)
+end;; end of READER signature *)
 
-module Reader : READER = struct
+(* module Reader : READER = struct *)
   open PC;;
 
   type string_part =
@@ -78,7 +79,6 @@ module Reader : READER = struct
     nt5 str
 
 
-      (* and nt_sexpr_comment str = raise X_not_yet_implemented *)
     and nt_sexpr_comment str = 
       let nt1 = word "#;" in
       let nt2 = nt_sexpr in
@@ -550,5 +550,5 @@ module Reader : READER = struct
   let scheme_sexpr_list_of_sexpr_list sexprs =
     List.fold_right (fun car cdr -> ScmPair (car, cdr)) sexprs ScmNil;;
 
-end;; 
+(* end;;  *)
 (* end of struct Reader *)
